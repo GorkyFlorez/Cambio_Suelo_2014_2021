@@ -1,0 +1,120 @@
+---
+title: "Google Earth Engine con R "
+author: "Ing. Gorky Florez Castillo"
+date: "23/03/2022"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    logo: PNG/Bio.png
+    social: [ "twitter", "facebook", "whatsapp", "instagram", "telegram", "linkedin", "pinterest" ]
+    source_code: "https://github.com/GorkyFlorez"
+    theme: readable
+    # "default", "cerulean", "journal", "flatly", "darkly", "readable", "spacelab", "united", "cosmo", "lumen", "paper", "sandstone", "simplex", "yeti"
+---
+
+```{r setup, include=FALSE}
+##--------------------------  LIBRERIAS
+library(sf)
+library(mapedit)
+library(raster)
+library(ggplot2)
+library(tmap)
+library(rgee)
+library(mapedit)
+library(rgee)
+library(googledrive)
+library(rgee)
+library(mapedit)
+library(tibble)
+library(sf)
+library(cptcity)
+library(tidyverse)
+library(sp)
+library(leaflet.extras2)
+library(raster)
+library(stars)
+library(geojsonio)
+library(ggmap)
+library(leafem)
+library(leaflet.extras)
+##--------------------------USUARIO
+ee_Initialize("gflorezc", drive = T)
+
+#ambito <- mapedit::drawFeatures()       
+#ambito <- ambito %>% st_as_sf()
+
+m="https://images.vexels.com/media/users/3/143561/isolated/preview/afa3aa927b63061e3b0222b7dab9cdbf-ubicaci--n-n--utica-norte-flecha-vintage-by-vexels.png"
+
+box <- ee$Geometry$Rectangle(coords= c(-70.12848,-13.0796 , -69.83734 , -12.75292),
+                             proj= "EPSG:4326", geodesic = F)
+
+
+coll <- ee$ImageCollection("LANDSAT/LC08/C01/T1_TOA")$                # Seleccionamos el satelite
+  filterDate("2013-01-01", "2014-12-30")$                    # Filtramos por fecha
+  filterBounds(box)$                                         # Filtramos mediante puntos
+  filterMetadata("CLOUD_COVER", "less_than", 10)             # Filtramos por nueves
+ee_get_date_ic(coll)                                                  # Leemos las imagenes disponibles
+# Cargamos la imgamen a escojer 
+
+L8  <- ee$Image('LANDSAT/LC08/C01/T1_TOA/LC08_003069_20141013')$    # Cargamos la imagen a descargar 
+  clip(box)%>%                                              # Cortamos la imagen con el sho de yungay
+  ee$Image$select(c("B4","B3", "B2"))                          # Realizamos la combinacion de bandas 
+
+
+
+sentinel2 <- ee$ImageCollection("COPERNICUS/S2_SR")
+
+Trueimage <-sentinel2$filterBounds(box)$ 
+  filterDate("2021-01-01", "2021-12-31")$ 
+  sort("CLOUDY_PIXEL_PERCENTAGE", FALSE)$
+  mosaic()$
+  clip(box)
+
+visParams = list(min= 0,max= 0.4, bands= c("B4","B3", "B2"),  gamma= 1.4)
+trueColor <- list(min= 0,max= 3000, bands= c("B4","B3", "B2"))
+  
+```
+
+Imágenes satelitales muestran la impresionante deforestación en la Amazonía en Madre de Dios
+===================================== 
+
+Column {data-width=1200}
+-----------------------------------------------------------------------
+
+### 
+```{r d}
+Map$setCenter(-69.98257,-12.93430 ,12)
+Map$addLayer(L8, visParams = visParams, name="Color Natural 2014 - Landsat 8")   %>% 
+    addLogo(position = "topleft",
+            offset.x = 50,
+            offset.y = 10,
+            width = 100,
+            height = 100, m) %>% 
+    addControl(html = "<p><strong><em>Imágenes satelitales muestran la impresionante deforestación en la Amazonía en Madre de Dios 2014 - 2021</em></strong></p>",
+               position = "topright")%>% 
+    addMiniMap(tiles = providers$Esri.WorldImagery,toggleDisplay = TRUE, position = "bottomleft")%>% 
+    addControl(html = "<p><strong><em>2014 - 2021</em></strong></p>",
+               position = "bottomright")%>%
+    addDrawToolbar(targetGroup = "Graficos",editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions()))%>%
+    addMeasure(position = "topleft",
+               primaryLengthUnit = "meters",
+               primaryAreaUnit = "sqmeters",
+               activeColor = "#3D535D",
+               completedColor = "#7D4479")%>% 
+    addSearchOSM() %>% 
+    addControlGPS() %>% 
+    addResetMapButton +
+    Map$addLayer(Trueimage, visParams = trueColor, name= "Color Natural 2021 - sentinel 2") %>%
+    addLayersControl(baseGroups = c("CartoDB", "OSM","Terrain","Satellite","Terrain.ESRI"),
+                     position = "topright",
+                     overlayGroups = c( "Color Natural 2014", "Color Natural 2021"),
+                     options = layersControlOptions(collapsed = T))%>%
+    addProviderTiles(providers$OpenStreetMap, group = "OSM")%>%
+    addProviderTiles(providers$Esri.WorldImagery, group = "Satellite")%>%
+    addProviderTiles(providers$CartoDB.DarkMatter,group = "CartoDB")%>%
+    addProviderTiles(providers$Stamen.Terrain, group = "Terrain") %>%
+    addProviderTiles(providers$Esri.WorldStreetMap, group = "Terrain.ESRI") %>%
+    addMiniMap(tiles = providers$Esri.WorldImagery,toggleDisplay = TRUE, position = "bottomleft")
+
+```
+
